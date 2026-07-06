@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NL Pig Kill Tracker</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%90%B7%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg-blue: #1a3c6e;
+    --star-yellow: #ffdd55;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-blue);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+
+  body {
+    padding-top: 70px; /* leaves room for the fixed info window */
+    padding-bottom: 30px; /* leaves room for the visit counter */
+    overflow-x: hidden;
+  }
+
+  #info-window {
+    position: fixed;
+    top: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(255, 255, 255, 0.92);
+    color: #1a3c6e;
+    padding: 10px 22px;
+    border-radius: 10px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 15px;
+    font-weight: bold;
+    text-align: center;
+    z-index: 10;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+
+  #dot-canvas {
+    display: block;
+    margin: 0 auto;
+    cursor: pointer;
+  }
+
+  #visit-counter {
+    position: fixed;
+    bottom: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: "Courier New", Courier, monospace;
+    font-size: 10px;
+    color: rgba(255, 255, 255, 0.55);
+    z-index: 10;
+    letter-spacing: 0.2px;
+  }
+</style>
+</head>
+<body>
+
+<div id="info-window">NL pig kill 2025 daily average: 38483</div>
+
+<canvas id="dot-canvas"></canvas>
+
+<div id="visit-counter">visits: <span id="visit-count">--</span></div>
+
+<script>
+  /* =========================================================
+     The daily average number below also controls how many
+     dots are drawn in the grid. Change it here if the figure
+     needs to be updated, and it will update both the text in
+     the info window (update the text in the HTML above too)
+     and the number of dots.
+     ========================================================= */
+  const DAILY_NUMBER = 38483;
+
+  /* =========================================================
+     DOT GRID (RASTER) — drawn on canvas for performance,
+     since the count can be in the tens of thousands.
+     ========================================================= */
+  const CELL_SIZE = 16; // size of each grid cell in px
+
+  const canvas = document.getElementById("dot-canvas");
+  const ctx = canvas.getContext("2d");
+
+  let COLS = 1;
+  let ROWS = 1;
+  const starred = new Set();
+
+  const PIG_FONT = `${Math.round(CELL_SIZE * 0.95)}px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+
+  function drawDot(x, y) {
+    const cx = x + CELL_SIZE / 2;
+    const cy = y + CELL_SIZE / 2;
+    ctx.font = PIG_FONT;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("🐷", cx, cy);
+  }
+
+  function drawStar(x, y) {
+    const cx = x + CELL_SIZE / 2;
+    const cy = y + CELL_SIZE / 2;
+    const outerR = CELL_SIZE * 0.5;
+    const innerR = CELL_SIZE * 0.2;
+    const spikes = 5;
+    let rot = (Math.PI / 2) * 3;
+    const step = Math.PI / spikes;
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - outerR);
+    for (let i = 0; i < spikes; i++) {
+      let sx = cx + Math.cos(rot) * outerR;
+      let sy = cy + Math.sin(rot) * outerR;
+      ctx.lineTo(sx, sy);
+      rot += step;
+
+      sx = cx + Math.cos(rot) * innerR;
+      sy = cy + Math.sin(rot) * innerR;
+      ctx.lineTo(sx, sy);
+      rot += step;
+    }
+    ctx.lineTo(cx, cy - outerR);
+    ctx.closePath();
+    ctx.fillStyle = "#ffdd55";
+    ctx.fill();
+  }
+
+  function cellCoords(index) {
+    const col = index % COLS;
+    const row = Math.floor(index / COLS);
+    return { x: col * CELL_SIZE, y: row * CELL_SIZE };
+  }
+
+  function drawCell(index) {
+    const { x, y } = cellCoords(index);
+    ctx.clearRect(x, y, CELL_SIZE, CELL_SIZE);
+    if (starred.has(index)) {
+      drawStar(x, y);
+    } else {
+      drawDot(x, y);
+    }
+  }
+
+  function renderAll(count) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    for (let i = 0; i < count; i++) {
+      const { x, y } = cellCoords(i);
+      if (starred.has(i)) {
+        drawStar(x, y);
+      } else {
+        drawDot(x, y);
+      }
+    }
+  }
+
+  function buildGrid(count) {
+    COLS = Math.max(1, Math.floor(window.innerWidth / CELL_SIZE));
+    ROWS = Math.ceil(count / COLS);
+
+    canvas.width = COLS * CELL_SIZE;
+    canvas.height = ROWS * CELL_SIZE;
+
+    starred.clear();
+    renderAll(count);
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const col = Math.floor(x / CELL_SIZE);
+    const row = Math.floor(y / CELL_SIZE);
+    const index = row * COLS + col;
+
+    if (index >= 0 && index < DAILY_NUMBER && !starred.has(index)) {
+      starred.add(index);
+      drawCell(index);
+    }
+  });
+
+  buildGrid(DAILY_NUMBER);
+
+  let resizeTimer;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => buildGrid(DAILY_NUMBER), 200);
+  });
+
+  /* =========================================================
+     VISIT COUNTER
+     -------------------------------------------------------
+     Uses the free countapi.xyz service so the count is shared
+     across all visitors, not just the local browser.
+     IMPORTANT: change "NAMESPACE" below to something unique
+     to your site (e.g. your GitHub username + repo name) so
+     your counter doesn't collide with someone else's.
+     ========================================================= */
+  const COUNTER_NAMESPACE = "nl-pig-kill-tracker-CHANGE-ME";
+  const COUNTER_KEY = "visits";
+
+  fetch(`https://api.countapi.xyz/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
+    .then((res) => res.json())
+    .then((data) => {
+      document.getElementById("visit-count").textContent = data.value;
+    })
+    .catch(() => {
+      document.getElementById("visit-count").textContent = "n/a";
+    });
+</script>
+
+</body>
+</html>
