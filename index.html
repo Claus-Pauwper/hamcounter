@@ -15,6 +15,31 @@
     box-sizing: border-box;
   }
 
+  /* Custom visible scrollbar for Firefox */
+  html {
+    scrollbar-width: auto;
+    scrollbar-color: var(--star-yellow) rgba(0, 0, 0, 0.3);
+  }
+
+  /* Custom visible scrollbar for Chrome, Safari, Edge */
+  ::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--star-yellow);
+    border-radius: 7px;
+    border: 3px solid var(--bg-blue);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: #ffffff;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -59,10 +84,14 @@
     left: 50%;
     transform: translateX(-50%);
     font-family: "Courier New", Courier, monospace;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.55);
+    font-size: 12px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.85);
     z-index: 10;
     letter-spacing: 0.2px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 2px 10px;
+    border-radius: 12px;
   }
 </style>
 </head>
@@ -77,16 +106,12 @@
 <script>
   /* =========================================================
      The daily average number below also controls how many
-     dots are drawn in the grid. Change it here if the figure
-     needs to be updated, and it will update both the text in
-     the info window (update the text in the HTML above too)
-     and the number of dots.
+     dots are drawn in the grid.
      ========================================================= */
   const DAILY_NUMBER = 38483;
 
   /* =========================================================
-     DOT GRID (RASTER) — drawn on canvas for performance,
-     since the count can be in the tens of thousands.
+     DOT GRID (RASTER)
      ========================================================= */
   const CELL_SIZE = 16; // size of each grid cell in px
 
@@ -200,23 +225,31 @@
   /* =========================================================
      VISIT COUNTER
      -------------------------------------------------------
-     Uses the free countapi.xyz service so the count is shared
-     across all visitors, not just the local browser.
-     IMPORTANT: change "NAMESPACE" below to something unique
-     to your site (e.g. your GitHub username + repo name) so
-     your counter doesn't collide with someone else's.
+     Uses counterapi.dev with local storage fallback.
      ========================================================= */
-  const COUNTER_NAMESPACE = "nl-pig-kill-tracker-CHANGE-ME";
-  const COUNTER_KEY = "visits";
+  const COUNTER_KEY = "nl_pig_tracker_visits";
 
-  fetch(`https://api.countapi.xyz/hit/${COUNTER_NAMESPACE}/${COUNTER_KEY}`)
-    .then((res) => res.json())
-    .then((data) => {
-      document.getElementById("visit-count").textContent = data.value;
-    })
-    .catch(() => {
-      document.getElementById("visit-count").textContent = "n/a";
-    });
+  function updateVisitCount() {
+    // Local fallback counter
+    let localVisits = parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10) + 1;
+    localStorage.setItem(COUNTER_KEY, localVisits);
+
+    // Online counter API
+    fetch("https://api.counterapi.dev/v1/nl-pig-kill-tracker/visits/up")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.count) {
+          document.getElementById("visit-count").textContent = data.count;
+        } else {
+          document.getElementById("visit-count").textContent = localVisits;
+        }
+      })
+      .catch(() => {
+        document.getElementById("visit-count").textContent = localVisits;
+      });
+  }
+
+  updateVisitCount();
 </script>
 
 </body>
