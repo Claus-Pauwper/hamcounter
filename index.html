@@ -180,30 +180,33 @@
   function renderAll(count) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     for (let i = 0; i < count; i++) {
-      const { x, y } = cellCoords(i);
       if (starred.has(i)) {
+        const { x, y } = cellCoords(i);
         drawStar(x, y);
       } else {
+        const { x, y } = cellCoords(i);
         drawDot(x, y);
       }
     }
   }
 
-  function buildGrid(count) {
+  function buildGrid(count, resetStarred = true) {
     COLS = Math.max(1, Math.floor(window.innerWidth / CELL_SIZE));
     ROWS = Math.ceil(count / COLS);
 
     canvas.width = COLS * CELL_SIZE;
     canvas.height = ROWS * CELL_SIZE;
 
-    starred.clear();
+    if (resetStarred) {
+      starred.clear();
+    }
     renderAll(count);
   }
 
   canvas.addEventListener("mousemove", (e) => {
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (e.clientY - rect.top) * (canvas.height / rect.height);
     const col = Math.floor(x / CELL_SIZE);
     const row = Math.floor(y / CELL_SIZE);
     const index = row * COLS + col;
@@ -219,22 +222,19 @@
   let resizeTimer;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => buildGrid(DAILY_NUMBER), 200);
+    // Preserves starred state across window resizes
+    resizeTimer = setTimeout(() => buildGrid(DAILY_NUMBER, false), 200);
   });
 
   /* =========================================================
      VISIT COUNTER
-     -------------------------------------------------------
-     Uses counterapi.dev with local storage fallback.
      ========================================================= */
   const COUNTER_KEY = "nl_pig_tracker_visits";
 
   function updateVisitCount() {
-    // Local fallback counter
     let localVisits = parseInt(localStorage.getItem(COUNTER_KEY) || "0", 10) + 1;
     localStorage.setItem(COUNTER_KEY, localVisits);
 
-    // Online counter API
     fetch("https://api.counterapi.dev/v1/nl-pig-kill-tracker/visits/up")
       .then((res) => res.json())
       .then((data) => {
